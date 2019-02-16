@@ -1,6 +1,7 @@
 ###############################################################################  
 # graficos apresentando a diversidade taxonomica das redes
 ## grafico de barras de diversidade
+# Bárbara Nobrega Rodrigues (https://orcid.org/0000-0001-8097-7871)
 ###############################################################################
 plotdiversity <- function(gNvplanTx,gNvanimTx,webType,output=""){
   tiff(paste0(output, webType, "_diversityColor.tif"),
