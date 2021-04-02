@@ -11,20 +11,22 @@
 # - Número de cidades amostradas por estado (img) e (tabela para Qgis)        #
 # - Mapa com tamanho da rede formando circulos no mapa (tabela para Qgis)     #
 # - Mapa com esforço amostral cumulativo (tabela para Qgis)                   #
+# Para ajudar na escolha das cores:                                           #
+# https://www.color-blindness.com/coblis-color-blindness-simulator/           #
 ###############################################################################
 # versao do script e conjunto de dados. Evitar sobrescrever.
-#vrsN <- "v03-3"
-vrsN <- "semJPincheira"
+vrsN <- "05"
 
 # define diretorio de trabalho
-setwd("<your working diretory path>")
+# setwd("G:/coisasPessoais/Doutorado/DataPaper/finalizacao_2020-12")
+setwd("/run/media/bnr/arquivos/coisasPessoais/Doutorado/DataPaper/finalizacao_2020-12")
 
 # Biblitecas a serem utilizadas
 # install.packages('openxlsx')
 library(openxlsx)
-# install.packages("rgeos")
+# install.packages("rgeos") # depende de uns programas que o qgis ja instala
 library(rgeos)
-# install.packages("rgdal")
+# install.packages("rgdal") # depende de uns programas que o qgis ja instala
 library(rgdal)
 #install.packages("bipartite")
 library(bipartite)
@@ -37,6 +39,7 @@ library(tm)
 library(wordcloud)
 library(RColorBrewer)
 
+source("plotweb_MaiBom.R")
 
 ###############################################################################
 # IMPORTA OS DADOS PARA FAZER AS ANALISES ABAIXO sem precisar rodar o inicio 
@@ -44,7 +47,12 @@ library(RColorBrewer)
 
 #allFiles <- read.xlsx("output/_rev_v03_allFiles_corrigido.xlsx")
 #allFiles <- read.xlsx("output/_rev_v03_allFiles_corrigido_semChile.xlsx")
-allFiles <- read.xlsx("output/_rev_v03_allFiles_corrigido_semJPincheira.xlsx")
+allFiles <- read.xlsx("_rev_v04_allFiles_corrigido_semJPincheira.xlsx")
+allFiles <- read.csv("submissao/AtlanticForestInvertFloInteractionData_2019-11.csv")
+# tira JP
+temp <- unique(unlist(lapply(allFiles$ordemdb,
+                             function(x) unlist(strsplit(x,"_"))[1])))
+allFiles <- allFiles[grep("JP_",allFiles$ordemdb, invert = T),]
 ###############################################################################
 
 
@@ -58,35 +66,36 @@ BrState <- readOGR(dsn="../Brazil_estados/Brazilian_States_Limits.shp")
 amSul <- readOGR(dsn="../Brazil_estados/Lowenberg_Neto_2014.shp")
 
 
-png(paste0("output/_rev_", vrsN, "todos_os_dados.png"), 1000,900)
+png(paste0("output/_rev", vrsN, "todos_os_dados.png"), 650, 900)
 # tiff(paste0("output/_rev_", vrsN, "todos_os_dados.tif"),
 #      width = 1000, height = 900,units = "px") # ,res = 300
 par(mar=c(3,3,2,0), lend = 0)
 
 plot(amSul, asp=1, 
-     main=paste("ATLANTIC : Plant-Invertebrate Interactions", 
-                nrow(allFiles),"Records"), 
-     usePolypath = FALSE, cex.main = 2.5,
+     main=paste(nrow(allFiles),"records of plant-invertebrate interactions"), 
+     usePolypath = FALSE, cex.main = 2, font.main = 1,
      col = "gray75", bor = "white", bg = "lightskyblue",
      xlim = c(-84,-30), ylim = c(-56,12))
 plot(MataAtlantica, asp=1, usePolypath = FALSE, add = T, 
-     col = "olivedrab2", bor = NA)
-plot(BrState, asp=1, usePolypath = FALSE, add = T, 
-     bor = "gray48")
-axis(1, at = seq(-100,-20,10), labels = seq(-100,-20,10)); axis(2)
+     col = "#06b131", bor = NA)
+plot(BrState, asp=1, usePolypath = FALSE, add = T, lty = "dotted",
+     bor = "#82948d")
+axis(1, at = seq(-100,-20,10), labels = seq(-100,-20,10), cex.axis= 1.5) 
+axis(2, at = seq(-50,10,10), labels = seq(-50,10,10), cex.axis= 1.5, las = 1)
 points(latitude_y~longitude_x, data=allFiles, pch=19, 
-       col="darkorchid3", cex=2)
+       col="#00480e", cex=2)
 par( lend = 1)
-legend("topleft", cex = 1.5, pt.cex = c(2, 3), 
+legend("bottomright", cex = 1.5, pt.cex = c(2, 3), 
        pch= c(19,  NA, NA, NA), 
-       col= c("darkorchid3","olivedrab2", "gray75", "gray48"), 
+       # col= c("#6fff07","olivedrab2", "gray75", "gray48"),
+       col= c("#00480e", "#06b131", "gray75", "#82948d"),
        lwd  = c(NA, 15, 15, 2),
-       lty  = c(NA, 1, 1, 1),
+       lty  = c(NA, 1, 1, 3),
        seg.len = c(1, 2, 2, 2),
-       legend = c("all coordinates",
+       legend = c("\nCoordinates of each record\n",
                   "Atlantic Forest biome\n",
-                  "biogeographical regions\n",
-                  "brazilian states") )
+                  "Biogeographical regions\n",
+                  "Brazilian states") )
 dev.off()
 
 
@@ -99,40 +108,33 @@ dev.off()
 # rede de interacao por taxons superiores
 ###############################################################################
 
-# tabela geral de interações
-# plantFaXInsectOrder
-temp <- allFiles[,c("plant_family", "insect_order")]
+# tabela geral de interacoes
+
+### plantOrXInsectOrder
+temp <- allFiles[,c("plant_order", "invertebrate_order")]
 gf <- as.matrix(table(temp))
 
-png(paste0("output/_rev_", vrsN, "_redeInteracao_plantFaXInsectOrder.png"),
-    width = 600,height = 174,units = "mm",res = 300)
-# cores dos nos de cima e das interacoes
-temp1 <- ncol(gf)
-coresB <- rainbow(temp1, alpha = 0.5)
-
-plotweb(gf, col.high= coresB, col.low= "gray40", # cores dos nos
-        bor.col.high= coresB, bor.col.low= "white", # bordas dos nos
-        #arrow="down.center", #bor.col.interaction= "grey18", # linhas repre as int
-        col.interaction= coresB, bor.col.interaction= coresB, # representacao das int
-        ybig = 3.5, low.y=2.5, high.y=4.3, # posicoes (entre as camadas, camada de baixo e a de cima)
-        high.lab.dis= 0.05, low.lab.dis= 0.05, # proximidade das label dos nos
-        method = "normal", # ordem dos nos 
-        text.rot= 90,labsize = 0.8) # direcao do texto)
-dev.off()
-
-
-
-# plantOrXInsectOrder
-temp <- allFiles[,c("plant_order", "insect_order")]
-gf <- as.matrix(table(temp))
-
-png(paste0("output/_rev_", vrsN, "_redeInteracao_OrXOr.png"),
+png(paste0("_rev", vrsN, "_redeInteracao_OrXOr.png"),
     width = 300,height = 174,units = "mm",res = 300)
 # cores dos nos de cima e das interacoes
 temp1 <- ncol(gf)
-coresB <- rainbow(temp1, alpha = 0.5)
 
-plotweb(gf, col.high= coresB, col.low= "gray40", # cores dos nos
+# com cores
+# brewer.pal.info[brewer.pal.info$category == 'qual',]
+coresB <- brewer.pal(temp1, "Paired") # rainbow(temp1, alpha = 0.5)
+
+# tons de cinza
+#coresB <- gray(seq(0.1,1,1/temp1))
+# parear os cinzas
+#temp2 <- c()
+#for (i in 1:length(coresB)){
+#  temp2 <- c(temp2,coresB[i],coresB[length(coresB)-i])
+#}
+#coresB <- temp2[1:temp1]
+# para padrao plotweb: comentar as linhas relacionadas as cores
+  
+plotweb_MaiBom(gf, 
+               col.high= coresB, col.low= "gray40", # cores dos nos
                bor.col.high= coresB, bor.col.low= "white", # bordas dos nos
                #arrow="down.center", #bor.col.interaction= "grey18", # linhas repre as int
                col.interaction= coresB, bor.col.interaction= coresB, # representacao das int
@@ -143,62 +145,20 @@ plotweb(gf, col.high= coresB, col.low= "gray40", # cores dos nos
 dev.off()
 
 
-# plantOrXInsectOrder (sem Hymenoptera)
-temp <- allFiles[,c("plant_order", "insect_order")]
-temp <- temp[temp$insect_order != "Hymenoptera",]
-gf <- as.matrix(table(temp))
-
-png(paste0("output/_rev_", vrsN, "_redeInteracao_OrXOr-wthtHymenoptera.png"),
-    width = 300,height = 174,units = "mm",res = 300)
-# cores dos nos de cima e das interacoes
-temp1 <- ncol(gf)
-coresB <- rainbow(temp1, alpha = 0.5)
-
-plotweb(gf, col.high= coresB, col.low= "gray40", # cores dos nos
-               bor.col.high= coresB, bor.col.low= "white", # bordas dos nos
-               #arrow="down.center", #bor.col.interaction= "grey18", # linhas repre as int
-               col.interaction= coresB, bor.col.interaction= coresB, # representacao das int
-               ybig = 3.5, low.y=2.5, high.y=4.3, # posicoes (entre as camadas, camada de baixo e a de cima)
-               high.lab.dis= 0.05, low.lab.dis= 0.05, # proximidade das label dos nos
-               method = "normal", # ordem dos nos 
-               text.rot= 90,labsize = 1.6) # direcao do texto)
-dev.off()
-
-
-# plantOrXInsectOrder (sem abundancia)
-temp <- unique(allFiles[,c("plant_order", "insect_order")])
-gf <- as.matrix(table(temp))
-
-png(paste0("output/_rev_", vrsN, "_redeInteracao_OrXOr-semAbun.png"),
-    width = 300,height = 174,units = "mm",res = 300)
-# cores dos nos de cima e das interacoes
-temp1 <- ncol(gf)
-coresB <- rainbow(temp1, alpha = 0.5)
-
-plotweb(gf, col.high= coresB, col.low= "gray40", # cores dos nos
-               bor.col.high= coresB, bor.col.low= "white", # bordas dos nos
-               #arrow="down.center", #bor.col.interaction= "grey18", # linhas repre as int
-               col.interaction= coresB, bor.col.interaction= coresB, # representacao das int
-               ybig = 3.5, low.y=2.5, high.y=4.3, # posicoes (entre as camadas, camada de baixo e a de cima)
-               high.lab.dis= 0.05, low.lab.dis= 0.05, # proximidade das label dos nos
-               method = "normal", # ordem dos nos 
-               text.rot= 90,labsize = 2.8) # direcao do texto)
-dev.off()
-
-
-# plantOrXInsectOrder (num de sp)
+### plantOrXInsectOrder (num de sp)
 temp <- unique(allFiles[,c("plant_order","plant_species_complete_name",
                             "insect_order","insect_species_complete_name")])
 temp <- temp[,c("plant_order", "insect_order")]
 gf <- as.matrix(table(temp))
 
-png(paste0("output/_rev_", vrsN, "_redeInteracao_OrXOr-entradasUnicas.png"),
+png(paste0("output/_rev", vrsN, "_redeInteracao_OrXOr-numSp.png"),
     width = 300,height = 174,units = "mm",res = 300)
 # cores dos nos de cima e das interacoes
 temp1 <- ncol(gf)
 coresB <- rainbow(temp1, alpha = 0.5)
 
-plotweb(gf, col.high= coresB, col.low= "gray40", # cores dos nos
+plotweb_MaiBom(gf, col.high= coresB, col.low= "gray40", # cores dos nos
+# plotweb(gf, col.high= coresB, col.low= "gray40", # cores dos nos
                bor.col.high= coresB, bor.col.low= "white", # bordas dos nos
                #arrow="down.center", #bor.col.interaction= "grey18", # linhas repre as int
                col.interaction= coresB, bor.col.interaction= coresB, # representacao das int
@@ -217,22 +177,22 @@ dev.off()
 
 
 ###############################################################################  
-# Histograma de esforço amostral
+# Histograma de esforco amostral
 
 # Unidade de esforco amostral: sampling_effort_hours
 temp <- unique(allFiles[,c("file", "sampling_effort_hours")])
 summary(as.numeric(temp$sampling_effort_hours))
-png(paste0("EsforcoAmostral_porDataset_", vrsN, ".png"), 
+png(paste0("output/", "EsforcoAmostral_porDataset_", vrsN, ".png"), 
     width = 95, height = 90,units = "mm",res = 300)
 par(mfrow= c(2,1), mar= c(0,3,2,1), mgp= c(1.5,0.5,0.1))
 hist(as.numeric(temp$sampling_effort_hours), 
      breaks= 40, xaxp= c(0,1600,16),
-     col = "gray50", cex.main= 1,
+     col = "gray75", cex.main= 1,
      ylab= "Frequency", xlab= "", main= "Histogram", # xaxt= "n", 
      xlim = c(0,1600))
 par(mar= c(3,3,2,1), mgp= c(1.5,0.5,0.1))
 boxplot(as.numeric(temp$sampling_effort_hours), ylim = c(0,1600),
-        horizontal = T, frame= F, xlab= "Hours", col = "gray50")
+        horizontal = T, frame= F, xlab= "Hours", col = "gray75")
 title(main= "Boxplot", line = -1, cex.main= 1)
 dev.off()
 par(mfrow= c(1,1))
@@ -260,7 +220,7 @@ temp <- unique(temp)
 temp2 <- length(temp)# tipos (36)
 
 # total de dados (tipo)
-png(paste0("veg_landuse_type_point - tdos tipos", vrsN, ".png"), 
+png(paste0("veg_landuse_type_point - tdosTipos", vrsN, ".png"), 
     width = 175, height = 100,units = "mm",res = 300)
 temp <- allFiles[,c("veg_landuse_type_point")]
 temp <- gsub("\\(.*\\)", "", temp)
@@ -269,11 +229,15 @@ temp <- gsub(" $", "", temp)
 temp <- gsub(" ,", ",", temp)
 temp <- sort(table(temp))
 par(mfrow= c(1,2), mar= c(10,3,1,0), mgp= c(2,0.5,0))
-barplot(temp[1:(temp2/2)], las= 2, ylab= "Frequency")
+barplot(temp[1:(temp2/2)], ylim = c(0,20), 
+        las= 2, ylab= "Frequency")
+# box(bty = "o")
 par(mar= c(10,4,1,0), mgp= c(3,0.5,0))
-barplot(temp[((temp2/2)+1):temp2], las= 2, ylab= "Frequency")
+barplot(temp[((temp2/2)+1):temp2], ylim = c(0,8000),
+        las= 2, ylab= "Frequency")
 dev.off()
 par(mfrow= c(1,1))
+write.csv(as.data.frame(temp), "output/veg_landuse_type_point - tdosTipos.csv")
 
 # total de dados (subtipos)
 png(paste0("veg_landuse_type_point - tdos subtipos", vrsN, ".png"), 
@@ -367,7 +331,8 @@ dev.off()
 # By Abhirami Sankar 
 # https://analyticstraining.com/how-to-create-a-word-cloud-in-r/
 temp <- allFiles[,c("file", "sampling_method_detail")]
-modi_txt <- paste(temp$sampling_method_detail, collapse = " ")
+# une em um str unica
+modi_txt <- paste(temp$sampling_method_detail, collapse = " ") 
 
 ### Converting the text file into a Corpus 
 #(it can then be processed by the tm package)
@@ -411,6 +376,7 @@ wordcloud(modi_data, scale=c(5,0.5), # tam max e min das palavras
           use.r.layout=FALSE, 
           colors= brewer.pal(9, "Set1")) # PRGn BrBG
 dev.off()
+
 
 
 temp <- unique(allFiles[,c("file", "sampling_method_detail")])
@@ -468,19 +434,31 @@ dev.off()
 
 
 ###############################################################################  
-# Número de cidades amostradas por estado (img) e (tabela para Qgis)
-temp <- unique(allFiles[,c("municipality", "country","state")])
+# Numero de cidades amostradas por estado (img) e (tabela para Qgis)
+temp <- unique(allFiles[,c("municipality", "country","state")]) # 187
 # se nao eh brasil, nome do estado passa a ser o pais
-temp$state[temp$country != "Brazil"] <- temp$country[temp$country != "Brazil"]
-# tira repeticoes
-temp <- unique(temp[,c("municipality", "state")]) # 189
-temp1 <- sort(table(temp$state), decreasing = T)
-png(paste0("freq municipios por estado - com num", vrsN, ".png"), 
+# temp$state[temp$country != "Brazil"] <- temp$country[temp$country != "Brazil"]
+# ordena por ordem alfabetica
+temp <- temp[order(temp$state), ]
+# ordena os estados por qt municipios
+temp2 <- names(sort(table(temp$state)))
+temp1 <- temp[temp$state == temp2[1], ]
+for (i in 2:length(temp2)){
+  temp1 <- rbind.data.frame(temp1, temp[temp$state == temp2[i], ])
+}
+temp <- temp1
+# coloca os estados argentinos 1o
+temp2 <- temp[temp$country == "Argentina", ]
+temp <- rbind.data.frame(temp2, temp[temp$country == "Brazil", ])
+# cria um vetor
+temp1 <- table(temp$state)
+temp1 <- temp1[match(unique(temp$state), names(temp1))]
+png(paste0("freqMunicipiosPorEstado_", vrsN, ".png"), 
     width = 100, height = 100,units = "mm",res = 300)
-par(mar= c(10,3,1,0), mgp= c(2,0.5,0), cex= 0.9)
+par(mar= c(11,3,1,0), mgp= c(2,0.5,0), cex= 0.9)
 barplot(temp1, las= 2, ylab= "Num. of municipalities", ylim = c(0,60))
 text(x= seq(0.7,(nrow(temp1)*1.2)-0.3,1.2), y= temp1+3, labels = temp1)
-title(xlab= "Brazilian state / other country", line = 8)
+title(xlab= "State", line = 8)
 dev.off()
 
 # salva em csv por nome de estado e pais
@@ -511,7 +489,7 @@ temp.allFiles <- cbind.data.frame(ID= ID, allFiles)
 temp <- unique(temp.allFiles[,c("ID", 
                                 "plant_species_complete_name", 
                                 "insect_species_complete_name")])
-# cada rede (483)
+# cada rede (479)
 temp1 <- as.data.frame(table(temp$ID)) 
 rownames(temp1) <- temp1$Var1
 # latitude e longitude medias
@@ -529,8 +507,8 @@ temp2 <- as.data.frame(t(as.data.frame(strsplit(temp2, split = ":"))))
 temp1 <- cbind.data.frame(temp2, temp1)
 colnames(temp1)[1:5] <- c("netwk","file","state","ID","size")
 # media e SD de redes por file (dataset)
-mean(table(temp1$file)) # 7.318182
-sd(table(temp1$file)) # 12.43217
+mean(table(temp1$file)) # 7.484375
+sd(table(temp1$file)) # 12.59124
 
 tamRed <- temp1
 #write.csv(temp1, paste0("tamRedesEstado_", vrsN, ".csv"))
@@ -543,7 +521,7 @@ BrState <- readOGR(dsn="../Brazil_estados/Brazilian_States_Limits.shp")
 amSul <- readOGR(dsn="../Brazil_estados/Lowenberg_Neto_2014.shp")
 
 
-png(paste0("mapa", vrsN, "tamRedesEst-log.png"), 1000,900)
+png(paste0("mapa", vrsN, "tamRedesEst-log.png"), 650,900)
 # tiff(paste0("output/_rev_", vrsN, "todos_os_dados.tif"),
 #      width = 1000, height = 900,units = "px") # ,res = 300
 par(mar=c(3,3,2,0), lend = 0)
@@ -551,27 +529,30 @@ par(mar=c(3,3,2,0), lend = 0)
 plot(amSul, asp=1, 
      main=paste0(nrow(temp1), " networks (range from ", 
                 min(temp1$size), " to ", max(temp1$size),")"), 
-     usePolypath = FALSE, cex.main = 2.5,
+     usePolypath = FALSE, cex.main = 2, font.main = 1,
      col = "gray75", bor = "white", bg = "lightskyblue",
      xlim = c(-84,-30), ylim = c(-56,12))
 plot(MataAtlantica, asp=1, usePolypath = FALSE, add = T, 
-     col = "olivedrab2", bor = NA)
-plot(BrState, asp=1, usePolypath = FALSE, add = T, 
-     bor = "gray48")
-axis(1, at = seq(-100,-20,10), labels = seq(-100,-20,10)); axis(2)
+     col = "#06b131", bor = NA)
+plot(BrState, asp=1, usePolypath = FALSE, add = T, lty = "dotted",
+     bor = "#82948d")
+axis(1, at = seq(-100,-20,10), labels = seq(-100,-20,10), cex.axis= 1.5) 
+axis(2, at = seq(-50,10,10), labels = seq(-50,10,10), cex.axis= 1.5, las = 1)
 points(latitude_y~longitude_x, data=temp1, pch=1, 
-       col="darkorchid3", cex=log(temp1$size)+0.5)
+       col=rgb(0, 72, 14, alpha = 165, maxColorValue = 255), 
+       cex=log(temp1$size)+0.5)
 par( lend = 1)
-legend("topleft", cex = 1.5, pt.cex = c(2, 3), 
+legend("bottomright", cex = 1.5, pt.cex = c(2, 3), 
        pch= c(1,  NA, NA, NA), 
-       col= c("darkorchid3","olivedrab2", "gray75", "gray48"), 
+       col= c(rgb(0, 72, 14, alpha = 165, maxColorValue = 255),
+              "#06b131", "gray75", "#82948d"), 
        lwd  = c(NA, 15, 15, 2),
-       lty  = c(NA, 1, 1, 1),
+       lty  = c(NA, 1, 1, 3),
        seg.len = c(1, 2, 2, 2),
-       legend = c("networks",
+       legend = c(" Each network",
                   "Atlantic Forest biome\n",
-                  "biogeographical regions\n",
-                  "brazilian states") )
+                  "Biogeographical regions\n",
+                  "Brazilian states") )
 dev.off()
 
 
@@ -586,7 +567,7 @@ dev.off()
 
 
 ###############################################################################  
-# Mapa com esforço amostral (tabela para Qgis)
+# Mapa com esforco amostral (tabela para Qgis)
 # media de horas de estudo (por estado) e SD
 
 # Unidade de esforco amostral: sampling_effort_hours
@@ -594,9 +575,9 @@ temp <- unique(allFiles[,c("file", "country","state","sampling_effort_hours")])
 # se nao eh brasil, nome do estado passa a ser o pais
 temp$state[temp$country != "Brazil"] <- temp$country[temp$country != "Brazil"]
 temp <- unique(temp[,c("file", "state", "sampling_effort_hours")])
-# quantidade de NAs (73)
+# quantidade de NAs (70)
 sum(is.na(temp$sampling_effort_hours))
-# remove NA (resulta em 204)
+# remove NA (resulta em 206)
 temp <- temp[!is.na(temp$sampling_effort_hours),]
 # calcula a media e o desvio padrao
 temp1 <- tapply(as.numeric(temp$sampling_effort_hours), temp$state, 
@@ -817,16 +798,18 @@ plotdiversity <- function(gNvplanTx,gNvanimTx){
     }
     soma <- data.frame(name = temp[order(soma, decreasing =T)], 
                        sum = soma[order(soma, decreasing =T)])
+    write.csv(soma, paste0("nSp_plant_", i, "-", colnames(gNvplanTx)[i], ".csv"))
+    tam <- ifelse(nrow(soma) < 20, nrow(soma), 20)
     if(i == 1){
-      barplot(soma[25:1,2], names.arg = soma[25:1,1], las = 1, horiz = T,
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
               beside = T, col = "#008033", border = NA,
               main = paste0("Number of plant species by\n ", colnames(gNvplanTx)[i],
-                            " - total of ",length(soma[,1]) ))
+                            " (", tam, " of ",length(soma[,1]),")" ))
     }else{
-      barplot(soma[25:1,2], names.arg = soma[25:1,1], las = 1, horiz = T,
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
               beside = T, col = "#008033", border = NA,
               main = paste0(colnames(gNvplanTx)[i],
-                            " - total of ",length(soma[,1]) ))
+                            " (", tam, " of ",length(soma[,1]),")" ))
     }
   }
   # animais
@@ -839,16 +822,18 @@ plotdiversity <- function(gNvplanTx,gNvanimTx){
     }
     soma <- data.frame(name = temp[order(soma, decreasing =T)], 
                        sum = soma[order(soma, decreasing =T)])
+    write.csv(soma, paste0("nSp_animal_", i, "-", colnames(gNvplanTx)[i], ".csv"))
+    tam <- ifelse(nrow(soma) < 20, nrow(soma), 20)
     if(i == 1){
-      barplot(soma[25:1,2], names.arg = soma[25:1,1], las = 1, horiz = T,
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
               beside = T, col = "#ff2a2a", border = NA,
               main = paste0("Number of animal species by\n ", colnames(gNvanimTx)[i],
-                            " - total of ",length(soma[,1]) ))
+                            " (", tam, " of ",length(soma[,1]),")" ))
     }else{
-      barplot(soma[25:1,2], names.arg = soma[25:1,1], las = 1, horiz = T,
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
               beside = T, col = "#ff2a2a", border = NA,
               main = paste0(colnames(gNvanimTx)[i],
-                            " - total of ",length(soma[,1]) ))
+                            " (", tam, " of ",length(soma[,1]),")" ))
     }
   }
   par(mfcol= c(1,1), mar= c(5,4,4,2)+0.1, mgp= c(3,1,0))
@@ -861,26 +846,27 @@ colnames(Plt) <- c("order","family","genera","species")
 Anm <- unique(allFiles[, c("insect_order","insect_family","insect_genera","insect_species")])
 colnames(Anm) <- c("order","family","genera","species")
 
-write(paste0("Number of Animals\nSpecies:\t", length(Anm$species[!is.na(Anm$species)]),
-             "\nGenus:\t", length(unique(Anm$genera[!is.na(Anm$genera)])),
-             "\nFamily:\t", length(unique(Anm$family[!is.na(Anm$family)])),
-             "\nOrder:\t", length(unique(Anm$order)),
-             "\nNumber of Plants\nSpecies:\t", length(Plt$species[!is.na(Plt$species)]),
-             "\nGenus:\t", length(unique(Plt$genera[!is.na(Plt$genera)])),
-             "\nFamily:\t", length(unique(Plt$family[!is.na(Plt$family)])),
-             "\nOrder:\t", length(unique(Plt$order)) ),
-      file = paste0("output/_rev_NumberOfTaxon", vrsN, ".txt"))
-
 plotdiversity(Plt,Anm)
 
 
 
+###############################################################################  
+# tabela com a quantidade de cada taxon
+tblTx <- data.frame(Species = NA,
+                    Genera = NA,
+                    Family = NA,
+                    Order = NA, stringsAsFactors = F)
+tblTx["Plant", 1] <- length(na.exclude(unique(allFiles$plant_species)))
+tblTx["Plant", 2] <- length(na.exclude(unique(allFiles$plant_genera)))
+tblTx["Plant", 3] <- length(na.exclude(unique(allFiles$plant_family)))
+tblTx["Plant", 4] <- length(na.exclude(unique(allFiles$plant_order)))
 
+tblTx["Invertebrate", 1] <- length(na.exclude(unique(allFiles$insect_species)))
+tblTx["Invertebrate", 2] <- length(na.exclude(unique(allFiles$insect_genera)))
+tblTx["Invertebrate", 3] <- length(na.exclude(unique(allFiles$insect_family)))
+tblTx["Invertebrate", 4] <- length(na.exclude(unique(allFiles$insect_order)))
 
-
-
-
-
+write.csv(tblTx, "output/qtTx.csv")
 
 ###############################################################################  
 # graficos apresentando a abundacia das redes
@@ -898,12 +884,12 @@ plotAbundancia <- function(gNvplanTx,gNvanimTx){
     colnames(soma) <- c("name","sum")
     soma <- soma[order(soma$sum, decreasing =T),]
     if(i == 1){
-      barplot(soma[25:1,2], names.arg = soma[25:1,1], las = 1, horiz = T,
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
               beside = T, col = "#008033", border = NA,
               main = paste0("Number of plant entries\n ", colnames(gNvplanTx)[i],
                             " - total of ",length(soma[,1]) ))
     }else{
-      barplot(soma[25:1,2], names.arg = soma[25:1,1], las = 1, horiz = T,
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
               beside = T, col = "#008033", border = NA,
               main = paste0(colnames(gNvplanTx)[i],
                             " - total of ",length(soma[,1]) ))
@@ -915,12 +901,12 @@ plotAbundancia <- function(gNvplanTx,gNvanimTx){
     colnames(soma) <- c("name","sum")
     soma <- soma[order(soma$sum, decreasing =T),]
     if(i == 1){
-      barplot(soma[25:1,2], names.arg = soma[25:1,1], las = 1, horiz = T,
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
               beside = T, col = "#ff2a2a", border = NA,
               main = paste0("Number of animal entries\n ", colnames(gNvanimTx)[i],
                             " - total of ",length(soma[,1]) ))
     }else{
-      barplot(soma[25:1,2], names.arg = soma[25:1,1], las = 1, horiz = T,
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
               beside = T, col = "#ff2a2a", border = NA,
               main = paste0(colnames(gNvanimTx)[i],
                             " - total of ",length(soma[,1]) ))
@@ -947,3 +933,200 @@ write(paste0("Number of Animals\nSpecies:\t", length(Anm$species[!is.na(Anm$spec
       file = paste0("output/_rev_AbundancePerTaxon",vrsN, ".txt"))
 
 plotAbundancia(Plt,Anm)
+
+
+
+
+
+
+
+
+
+#==============================================================================
+plotDivAbu <- function(gNvplanTx,gNvanimTx){
+  qtTtl <- vector("list", length = 15)
+  names(qtTtl) <- c("dvPlOr","dvPlFa","dvPlGe",
+                    "abPlOr","abPlFa","abPlGe",
+                    "dvAnOr","dvAnFa","dvAnGe",
+                    "abAnOr","abAnFa","abAnGe",
+                    "plantSp","animaSp", "qtCdTx")
+  
+  # tabela com a quantidade de cada taxon
+  tblTx <- data.frame(Morphotype = NA,
+                      Species = NA,
+                      Genera = NA,
+                      Family = NA,
+                      Order = NA, stringsAsFactors = F)
+  tblTx["Plant", 1] <- length(na.exclude(unique(allFiles$plant_species_complete_name)))
+  tblTx["Plant", 2] <- length(na.exclude(unique(allFiles$plant_species)))
+  tblTx["Plant", 3] <- length(na.exclude(unique(allFiles$plant_genera)))
+  tblTx["Plant", 4] <- length(na.exclude(unique(allFiles$plant_family)))
+  tblTx["Plant", 5] <- length(na.exclude(unique(allFiles$plant_order)))
+  
+  tblTx["Invertebrate", 1] <- length(na.exclude(unique(allFiles$insect_species_complete_name)))
+  tblTx["Invertebrate", 2] <- length(na.exclude(unique(allFiles$insect_species)))
+  tblTx["Invertebrate", 3] <- length(na.exclude(unique(allFiles$insect_genera)))
+  tblTx["Invertebrate", 4] <- length(na.exclude(unique(allFiles$insect_family)))
+  tblTx["Invertebrate", 5] <- length(na.exclude(unique(allFiles$insect_order)))
+  tblTx <- cbind.data.frame(tblTx, Type = c(NA,"Plant", "Invertebrate"))
+  qtTtl$qtCdTx <- tblTx
+
+  # plantas
+  
+  # tiff(paste0("../output/_rev_", vrsN, "_nSpPlant.tif"),
+  #      width = 174,height = 233,units = "mm",res = 300)
+  png(paste0("output/_rev_", vrsN, "_nSpPlant.png"),
+      width = 174,height = 233,units = "mm",res = 300)
+  par(mfcol= c(3,2), mar= c(2,9,1.8,1)+0.1, mgp= c(1,1,0))
+  
+  # tira linhas sem sp (com NA como nome da sp)
+  temp1 <- unique(gNvplanTx[!is.na(gNvplanTx$species), ])
+  temp2 <- temp1[order(temp1$species), ]
+  temp2 <- cbind.data.frame(temp2,
+                            duploSp = vector("logical", length = nrow(temp2)),
+                            notbiSp = vector("logical", length = nrow(temp2)),
+                            errorSp = vector("logical", length = nrow(temp2)),
+                            allErSp = vector("logical", length = nrow(temp2)))
+  for (i in 2:nrow(temp2)){
+    if (temp2$species[i] == temp2$species[i-1]){
+      temp2$duploSp[i] <- temp2$duploSp[i-1] <- temp2$species[i] == temp2$species[i-1]
+    }
+    if ( length(unlist(strsplit(temp2$species[i], " "))) != 2 ){
+      temp2$notbiSp[i] <- TRUE
+    }
+  }
+  temp2$errorSp <- agrepl(" sp\\.", temp2$species)
+  temp2$errorSp[grep(" sp$", temp2$species)] <- TRUE
+  temp2$allErSp <- apply(temp2[, 5:8], 1, function(x) sum(x)>0 )
+  qtTtl$plantSp <- temp2
+  
+  for (i in 1:3){
+    # tira linhas repetidas
+    tempgNvplanTx <- unique(gNvplanTx[!is.na(gNvplanTx[,i]), ])
+    # taxon foco sem repeticoes
+    temp <- unique(tempgNvplanTx[,i])
+    # conta quantas sp tem em cada taxon foco
+    soma <- vector(mode = "numeric", length = length(temp))
+    for (j in 1:length(temp)){
+      soma[j] <- sum(temp1[ ,i] == temp[j], na.rm = TRUE)
+    }
+    soma <- data.frame(name = temp[order(soma, decreasing =T)], 
+                       sum = soma[order(soma, decreasing =T)])
+    qtTtl[[i]] <- soma
+    tam <- ifelse(nrow(soma) < 20, nrow(soma), 20)
+    if(i == 1){
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
+              beside = T, col = "#008033", border = NA,
+              main = paste0("Number of plant species"))
+      title(ylab = paste0(colnames(gNvplanTx)[i],
+                     " (", tam, " of ",length(soma[,1]),")"),
+            line = 8)
+    }else{
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
+              beside = T, col = "#008033", border = NA)
+      title(ylab = paste0(colnames(gNvplanTx)[i],
+                          " (", tam, " of ",length(soma[,1]),")"),
+            line = 8)
+    }
+  }
+  
+  for (i in 1:3){
+    soma <- as.data.frame(table(gNvplanTx[!is.na(gNvplanTx[,i]),i]))
+    colnames(soma) <- c("name","sum")
+    soma <- soma[order(soma$sum, decreasing =T),]
+    qtTtl[[i+3]] <- soma
+    if(i == 1){
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
+              beside = T, col = "#008033", border = NA,
+              main = paste0("Number of plant entries"))
+    }else{
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
+              beside = T, col = "#008033", border = NA)
+    }
+  }
+  dev.off()
+  par(mfcol= c(1,1), mar= c(5,4,4,2)+0.1, mgp= c(3,1,0))
+  
+  
+  # animais
+  
+  png(paste0("output/_rev_", vrsN, "_nSpInvert.png"),
+      width = 174,height = 233,units = "mm",res = 300)
+  par(mfcol= c(3,2), mar= c(2,9,1.8,1)+0.1, mgp= c(1,1,0))
+  
+  # tira linhas sem sp (com NA como nome da sp)
+  temp1 <- unique(gNvanimTx[!is.na(gNvanimTx$species), ])
+  temp2 <- temp1[order(temp1$species), ]
+  temp2 <- cbind.data.frame(temp2,
+                            duploSp = vector("logical", length = nrow(temp2)),
+                            notbiSp = vector("logical", length = nrow(temp2)),
+                            errorSp = vector("logical", length = nrow(temp2)),
+                            allErSp = vector("logical", length = nrow(temp2)))
+  for (i in 2:nrow(temp2)){
+    if (temp2$species[i] == temp2$species[i-1]){
+      temp2$duploSp[i] <- temp2$duploSp[i-1] <- temp2$species[i] == temp2$species[i-1]
+    }
+    if ( length(unlist(strsplit(temp2$species[i], " "))) != 2 ){
+      temp2$notbiSp[i] <- TRUE
+    }
+  }
+  temp2$errorSp <- agrepl(" sp\\.", temp2$species)
+  temp2$errorSp[grep(" sp$", temp2$species)] <- TRUE
+  temp2$allErSp <- apply(temp2[, 5:8], 1, function(x) sum(x)>0 )
+  qtTtl$animaSp <- temp2
+  
+  for (i in 1:3){
+    tempgNvanimTx <- unique(gNvanimTx[!is.na(gNvanimTx[,i]), ])
+    temp <- unique(tempgNvanimTx[ ,i])
+    soma <- vector(mode = "numeric", length = length(temp))
+    for (j in 1:length(temp)){
+      soma[j] <- sum(temp1[ ,i] == temp[j])
+    }
+    soma <- data.frame(name = temp[order(soma, decreasing =T)], 
+                       sum = soma[order(soma, decreasing =T)])
+    qtTtl[[i+6]] <- soma
+    tam <- ifelse(nrow(soma) < 20, nrow(soma), 20)
+    if(i == 1){
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
+              beside = T, col = "#ff2a2a", border = NA,
+              main = paste0("Number of invertebrate species"))
+      title(ylab = paste0(colnames(gNvplanTx)[i],
+                          " (", tam, " of ",length(soma[,1]),")"),
+            line = 8)
+    }else{
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
+              beside = T, col = "#ff2a2a", border = NA)
+      title(ylab = paste0(colnames(gNvplanTx)[i],
+                          " (", tam, " of ",length(soma[,1]),")"),
+            line = 8)
+    }
+  }
+  
+  for (i in 1:3){
+    soma <- as.data.frame(table(gNvanimTx[!is.na(gNvanimTx[,i]),i]))
+    colnames(soma) <- c("name","sum")
+    soma <- soma[order(soma$sum, decreasing =T),]
+    qtTtl[[i+9]] <- soma
+    if(i == 1){
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
+              beside = T, col = "#ff2a2a", border = NA,
+              main = paste0("Number of invertebrate entries"))
+    }else{
+      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
+              beside = T, col = "#ff2a2a", border = NA)
+    }
+  }
+  dev.off()
+  par(mfcol= c(1,1), mar= c(5,4,4,2)+0.1, mgp= c(3,1,0))
+  
+  write.xlsx(qtTtl, "output/quantiasAbDiv.xlsx")
+}
+
+Plt <- allFiles[, c("plant_order","plant_family","plant_genera","plant_species")]
+colnames(Plt) <- c("order","family","genera","species")
+Anm <- allFiles[, c("insect_order","insect_family","insect_genera","insect_species")]
+colnames(Anm) <- c("order","family","genera","species")
+
+plotDivAbu(Plt,Anm)
+gNvplanTx <- Plt
+gNvanimTx <- Anm
