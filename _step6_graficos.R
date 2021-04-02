@@ -145,32 +145,6 @@ plotweb_MaiBom(gf,
 dev.off()
 
 
-### plantOrXInsectOrder (num de sp)
-temp <- unique(allFiles[,c("plant_order","plant_species_complete_name",
-                            "insect_order","insect_species_complete_name")])
-temp <- temp[,c("plant_order", "insect_order")]
-gf <- as.matrix(table(temp))
-
-png(paste0("output/_rev", vrsN, "_redeInteracao_OrXOr-numSp.png"),
-    width = 300,height = 174,units = "mm",res = 300)
-# cores dos nos de cima e das interacoes
-temp1 <- ncol(gf)
-coresB <- rainbow(temp1, alpha = 0.5)
-
-plotweb_MaiBom(gf, col.high= coresB, col.low= "gray40", # cores dos nos
-# plotweb(gf, col.high= coresB, col.low= "gray40", # cores dos nos
-               bor.col.high= coresB, bor.col.low= "white", # bordas dos nos
-               #arrow="down.center", #bor.col.interaction= "grey18", # linhas repre as int
-               col.interaction= coresB, bor.col.interaction= coresB, # representacao das int
-               ybig = 3.5, low.y=2.5, high.y=4.3, # posicoes (entre as camadas, camada de baixo e a de cima)
-               high.lab.dis= 0.05, low.lab.dis= 0.05, # proximidade das label dos nos
-               method = "normal", # ordem dos nos 
-               text.rot= 90,labsize = 1.6) # direcao do texto)
-dev.off()
-
-
-
-
 
 
 
@@ -328,7 +302,7 @@ dev.off()
 
 ###############################################################################  
 # sampling_method_detail para fazer nuvem de termos
-# By Abhirami Sankar 
+# By Abhirami Sankar **********************************************************
 # https://analyticstraining.com/how-to-create-a-word-cloud-in-r/
 temp <- allFiles[,c("file", "sampling_method_detail")]
 # une em um str unica
@@ -470,7 +444,7 @@ munPorEstd <- as.data.frame(temp1)
 
 
 ###############################################################################  
-# Mapa com tamanho da rede formando circulos no mapa (tabela para Qgis)
+# Mapa com tamanho da rede formando circulos no mapa (ou tabela para Qgis)
 # Unidade do que eh uma rede: site_name (ou municipality)
 temp <- allFiles[,c("file","regional_name_of_sampled_area",
                     "municipality", "site_name_id","state",
@@ -567,7 +541,7 @@ dev.off()
 
 
 ###############################################################################  
-# Mapa com esforco amostral (tabela para Qgis)
+# Figura com esforco amostral (ou tabela para mapa no Qgis)
 # media de horas de estudo (por estado) e SD
 
 # Unidade de esforco amostral: sampling_effort_hours
@@ -755,19 +729,6 @@ saveWorkbook(wb, file = paste0("_tabelas-info_", vrsN,
                                format(Sys.time(), "_%Y-%m-d%d-"),
                                gsub(":", "", format(Sys.time(), "%X") ),
                                ".xlsx"))
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
