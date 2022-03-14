@@ -1,25 +1,26 @@
 ###############################################################################
-################ Figuras para representar os dados do Datapaper ###############
+######### Figuras e tabelas para representar os dados do Datapaper ############
 # Gera figuras para base da parte escrita                                     #
 # Unidade do que eh uma rede: site_name (ou municipality)                     #
 # Unidade de esforco amostral: sampling_effort_hours                          #
 # Graficos:                                                                   #
-# - rede bipartida geral de ordem animais X ord plantas (img)                 #
-# - Histograma de esforço amostral (img)                                      #
-# - Freq de Landuse_type_point (img)                                          #
-# - sampling_method_detail para fazer nuvem de termos (img)                   #
-# - Número de cidades amostradas por estado (img) e (tabela para Qgis)        #
-# - Mapa com tamanho da rede formando circulos no mapa (tabela para Qgis)     #
-# - Mapa com esforço amostral cumulativo (tabela para Qgis)                   #
+# - Fig1_Location of each record of plant-invertebrate interactions (map)     #
+# - Fig2_First twenty orders families and genera (plant)                      #
+# - Fig3_First twenty orders families and genera (invertebrate)               #
+# - Fig4_Bipartite network of all plant-invertebrate orders interactions      #
+# - Fig5_Distribution and size of each network in the dataset (map)           #
+# - Fig6_Sample effort and number of sampled networks                         #
+# - Fig7_Number of sampled municipalities per state                           #
+# - Fig8_Number of records of each environment type at sample points          #
+# - Table1_IVB_Variable information
 # Para ajudar na escolha das cores:                                           #
 # https://www.color-blindness.com/coblis-color-blindness-simulator/           #
 ###############################################################################
 # versao do script e conjunto de dados. Evitar sobrescrever.
-vrsN <- "05"
+vrsN <- "07_semJP"
 
 # define diretorio de trabalho
-# setwd("G:/coisasPessoais/Doutorado/DataPaper/finalizacao_2020-12")
-setwd("/run/media/bnr/arquivos/coisasPessoais/Doutorado/DataPaper/finalizacao_2020-12")
+setwd("/run/media/bnr/arquivos/DataPaper/")
 
 # Biblitecas a serem utilizadas
 # install.packages('openxlsx')
@@ -42,17 +43,22 @@ library(RColorBrewer)
 source("plotweb_MaiBom.R")
 
 ###############################################################################
-# IMPORTA OS DADOS PARA FAZER AS ANALISES ABAIXO sem precisar rodar o inicio 
-# do script
+# IMPORTA OS DADOS PARA FAZER AS ANALISES
 
-#allFiles <- read.xlsx("output/_rev_v03_allFiles_corrigido.xlsx")
-#allFiles <- read.xlsx("output/_rev_v03_allFiles_corrigido_semChile.xlsx")
-allFiles <- read.xlsx("_rev_v04_allFiles_corrigido_semJPincheira.xlsx")
+#allFiles <- read.xlsx("_rev_v04_allFiles_corrigido_semJPincheira.xlsx")
 allFiles <- read.csv("submissao/AtlanticForestInvertFloInteractionData_2019-11.csv")
 # tira JP
 temp <- unique(unlist(lapply(allFiles$ordemdb,
                              function(x) unlist(strsplit(x,"_"))[1])))
 allFiles <- allFiles[grep("JP_",allFiles$ordemdb, invert = T),]
+
+# ou
+# allFiles <- allFiles[grep("JP_[0-9]+$", allFiles$ordemdb, invert = T), ]
+
+# adiciona a coluna file
+file <- gsub("_[0-9].*$","",allFiles$ordemdb)
+allFiles <- data.frame(file, allFiles)
+rm("file")
 ###############################################################################
 
 
@@ -66,13 +72,13 @@ BrState <- readOGR(dsn="../Brazil_estados/Brazilian_States_Limits.shp")
 amSul <- readOGR(dsn="../Brazil_estados/Lowenberg_Neto_2014.shp")
 
 
-png(paste0("output/_rev", vrsN, "todos_os_dados.png"), 650, 900)
+png(paste0("output/", vrsN, "_Fig1_Location of each record of plant-invertebrate interactions.png"), 650, 900)
 # tiff(paste0("output/_rev_", vrsN, "todos_os_dados.tif"),
 #      width = 1000, height = 900,units = "px") # ,res = 300
 par(mar=c(3,3,2,0), lend = 0)
 
 plot(amSul, asp=1, 
-     main=paste(nrow(allFiles),"records of plant-invertebrate interactions"), 
+     main=paste(nrow(allFiles),"entries of plant-invertebrate interactions"), 
      usePolypath = FALSE, cex.main = 2, font.main = 1,
      col = "gray75", bor = "white", bg = "lightskyblue",
      xlim = c(-84,-30), ylim = c(-56,12))
@@ -99,11 +105,6 @@ legend("bottomright", cex = 1.5, pt.cex = c(2, 3),
 dev.off()
 
 
-
-
-
-
-
 ###############################################################################  
 # rede de interacao por taxons superiores
 ###############################################################################
@@ -114,7 +115,7 @@ dev.off()
 temp <- allFiles[,c("plant_order", "invertebrate_order")]
 gf <- as.matrix(table(temp))
 
-png(paste0("_rev", vrsN, "_redeInteracao_OrXOr.png"),
+png(paste0("output/", vrsN, "_Fig4_Bipartite network of all plant-invertebrate orders interactions.png"),
     width = 300,height = 174,units = "mm",res = 300)
 # cores dos nos de cima e das interacoes
 temp1 <- ncol(gf)
@@ -132,7 +133,7 @@ coresB <- brewer.pal(temp1, "Paired") # rainbow(temp1, alpha = 0.5)
 #}
 #coresB <- temp2[1:temp1]
 # para padrao plotweb: comentar as linhas relacionadas as cores
-  
+# par(omi = c(0,0,2,0))
 plotweb_MaiBom(gf, 
                col.high= coresB, col.low= "gray40", # cores dos nos
                bor.col.high= coresB, bor.col.low= "white", # bordas dos nos
@@ -142,40 +143,9 @@ plotweb_MaiBom(gf,
                high.lab.dis= 0.05, low.lab.dis= 0.05, # proximidade das label dos nos
                method = "normal", # ordem dos nos 
                text.rot= 90,labsize = 1.6) # direcao do texto)
+# title(main= "Pairs between plant and invertebrate orders\n(the sizes represent the number of entries)", cex.main= 1, outer= TRUE)
 dev.off()
-
-
-
-
-
-
-
-###############################################################################  
-# Histograma de esforco amostral
-
-# Unidade de esforco amostral: sampling_effort_hours
-temp <- unique(allFiles[,c("file", "sampling_effort_hours")])
-summary(as.numeric(temp$sampling_effort_hours))
-png(paste0("output/", "EsforcoAmostral_porDataset_", vrsN, ".png"), 
-    width = 95, height = 90,units = "mm",res = 300)
-par(mfrow= c(2,1), mar= c(0,3,2,1), mgp= c(1.5,0.5,0.1))
-hist(as.numeric(temp$sampling_effort_hours), 
-     breaks= 40, xaxp= c(0,1600,16),
-     col = "gray75", cex.main= 1,
-     ylab= "Frequency", xlab= "", main= "Histogram", # xaxt= "n", 
-     xlim = c(0,1600))
-par(mar= c(3,3,2,1), mgp= c(1.5,0.5,0.1))
-boxplot(as.numeric(temp$sampling_effort_hours), ylim = c(0,1600),
-        horizontal = T, frame= F, xlab= "Hours", col = "gray75")
-title(main= "Boxplot", line = -1, cex.main= 1)
-dev.off()
-par(mfrow= c(1,1))
-
-
-
-
-
-
+par(omi = c(0,0,0,0))
 
 
 
@@ -184,225 +154,37 @@ par(mfrow= c(1,1))
 # Freq de Landuse_type_point
 
 # quantidades
-temp <- unique(allFiles[,c("veg_landuse_type_point")])
-temp1 <- length(temp)# subtipos (72)
+temp <- allFiles[,c("veg_landuse_type_point")]
 temp <- gsub("\\(.*\\)", "", temp)
 temp <- gsub("  ", " ", temp)
 temp <- gsub(" $", "", temp)
 temp <- gsub(" ,", ",", temp)
-temp <- unique(temp)
-temp2 <- length(temp)# tipos (36)
+temp <- sort(table(temp))
+
+temp2 <- length(temp)# tipos (28)
 
 # total de dados (tipo)
-png(paste0("veg_landuse_type_point - tdosTipos", vrsN, ".png"), 
+png(paste0("output/", vrsN, "_Fig8_Number of records of each environment type at sample points.png"), 
     width = 175, height = 100,units = "mm",res = 300)
-temp <- allFiles[,c("veg_landuse_type_point")]
-temp <- gsub("\\(.*\\)", "", temp)
-temp <- gsub("  ", " ", temp)
-temp <- gsub(" $", "", temp)
-temp <- gsub(" ,", ",", temp)
-temp <- sort(table(temp))
-par(mfrow= c(1,2), mar= c(10,3,1,0), mgp= c(2,0.5,0))
-barplot(temp[1:(temp2/2)], ylim = c(0,20), 
-        las= 2, ylab= "Frequency")
+
+par(oma = c(0,0,1,0))
+par(mfrow= c(1,2), mar= c(10,4,1,0), mgp= c(2,0.5,0))
+barplot(temp[1:floor(temp2/2)], ylim = c(0,20), 
+        las= 2, ylab= paste0("Frequency"))
+title(xlab= "Environment type", line = 8.5)
+mtext("A)", side=3, adj=-0.25, line=1, cex=1)
 # box(bty = "o")
-par(mar= c(10,4,1,0), mgp= c(3,0.5,0))
-barplot(temp[((temp2/2)+1):temp2], ylim = c(0,8000),
-        las= 2, ylab= "Frequency")
+par(mar= c(10,5,1,0), mgp= c(3,0.5,0))
+barplot(temp[(floor(temp2/2)+1):temp2], ylim = c(0,8000),
+        las= 2, ylab= paste0("Frequency"))
+title(xlab= "Environment type", line = 8.5)
+mtext("B)", side=3, adj=-0.35, line=1, cex=1)
+
 dev.off()
 par(mfrow= c(1,1))
-write.csv(as.data.frame(temp), "output/veg_landuse_type_point - tdosTipos.csv")
-
-# total de dados (subtipos)
-png(paste0("veg_landuse_type_point - tdos subtipos", vrsN, ".png"), 
-    width = 175, height = 175,units = "mm",res = 300)
-temp <- allFiles[,c("veg_landuse_type_point")]
-#temp <- gsub("\\(.*\\)", "", temp)
-temp <- gsub("  ", " ", temp)
-temp <- gsub(" $", "", temp)
-temp <- gsub(" ,", ",", temp)
-temp <- sort(table(temp))
-par(mfrow= c(1,2), mar= c(22,3,1,0), mgp= c(2,0.5,0), cex= 0.6)
-barplot(temp[1:(temp1/2)], las= 2, ylab= "Frequency")
-par(mar= c(22,4,1,0), mgp= c(3,0.5,0), cex= 0.6)
-barplot(temp[((temp1/2)+1):temp1], las= 2, ylab= "Frequency")
-dev.off()
-par(mfrow= c(1,1))
-
-
-# por municipio (187 municipios) tipos
-temp <- unique(allFiles[,c("municipality", "veg_landuse_type_point")])
-temp <- temp[,c("veg_landuse_type_point")]
-temp <- gsub("\\(.*\\)", "", temp)
-temp <- gsub("  ", " ", temp)
-temp <- gsub(" $", "", temp)
-temp <- gsub(" ,", ",", temp)
-temp <- sort(table(temp))
-names(temp)[temp<2]
-# ocorreram em apenas uma cidade
-# [1] "agroforestry system"  "arboretum"            "botanical garden"    
-# [4] "fields, Caatinga"     "forest-restinga edge" "forest, agriculture" 
-# [7] "mangrove"             "marsh"                "restinga, urban"     
-# [10] "savanna, forest"      "urban, agriculture"  
-png(paste0("veg_landuse_type_point - municipios tipos", vrsN, ".png"), 
-    width = 80, height = 100,units = "mm",res = 300)
-par(mar= c(10,3,1,0), mgp= c(2,0.5,0))
-barplot(temp[temp>1], las= 2, ylab= "Num. of municipalities")
-dev.off()
-
-
-# por municipio (187 municipios) subtipos
-temp <- unique(allFiles[,c("municipality", "veg_landuse_type_point")])
-temp <- temp[,c("veg_landuse_type_point")]
-#temp <- gsub("\\(.*\\)", "", temp)
-temp <- gsub("  ", " ", temp)
-temp <- gsub(" $", "", temp)
-temp <- gsub(" ,", ",", temp)
-temp <- sort(table(temp))
-names(temp)[temp<2]
-# ocorreram em apenas uma cidade
-# [1] "agriculture (coffe)"                                 
-# [2] "agriculture (pumpkin)"                               
-# [3] "agriculture (sugarcane)"                             
-# [4] "agriculture, orchard"                                
-# [5] "agroforestry system"                                 
-# [6] "arboretum"                                           
-# [7] "botanical garden"                                    
-# [8] "fields (campo rupestre), savanna (cerrado), Caatinga"
-# [9] "forest-restinga edge"                                
-# [10] "forest (camping area)"                               
-# [11] "forest (conserved primary forest)"                   
-# [12] "forest (degraded primary forest)"                    
-# [13] "forest (early successional)"                         
-# [14] "forest (early)"                                      
-# [15] "forest (littoral)"                                   
-# [16] "forest (restoration, riparian)"                      
-# [17] "forest (restored riparian)"                          
-# [18] "forest (restored)"                                   
-# [19] "forest (seasonal)"                                   
-# [20] "forest (secondary Atlantic)"                         
-# [21] "forest (tableland)"                                  
-# [22] "forest, agriculture"                                 
-# [23] "mangrove (border)"                                   
-# [24] "marsh"                                               
-# [25] "restinga, urban"                                     
-# [26] "savanna (cerrado campo sujo)"                        
-# [27] "savanna (cerrado stricto sensu)"                     
-# [28] "savanna (cerrado), fields (rocky fields)"            
-# [29] "savanna (cerrado), forest"                           
-# [30] "savanna (ex situ of native fruit trees in Cerrado)"  
-# [31] "urban (garden), agriculture"  
-png(paste0("veg_landuse_type_point - municipios subtipos", vrsN, ".png"), 
-    width = 95, height = 100,units = "mm",res = 300)
-par(mar= c(18,3,1,0), mgp= c(2,0.5,0), cex= 0.6)
-barplot(temp[temp>1], las= 2, ylab= "Num. of municipalities")
-dev.off()
-
-
-
-###############################################################################  
-# sampling_method_detail para fazer nuvem de termos
-# By Abhirami Sankar **********************************************************
-# https://analyticstraining.com/how-to-create-a-word-cloud-in-r/
-temp <- allFiles[,c("file", "sampling_method_detail")]
-# une em um str unica
-modi_txt <- paste(temp$sampling_method_detail, collapse = " ") 
-
-### Converting the text file into a Corpus 
-#(it can then be processed by the tm package)
-# A corpus is a collection of documents (although in our case we only have one)
-# converte p uma list c/ cd frase num item de uma lista, e cada item da lista 
-# tem "content" q eh a frase e "meta" informacoes (idioma, autor...)
-modi <- Corpus(VectorSource(modi_txt))
-### Data Cleaning
-# use tm_map() from the tm package for processing your text
-modi_data <- tm_map(modi,stripWhitespace)
-modi_data <- tm_map(modi_data,tolower)
-modi_data <- tm_map(modi_data,removeNumbers)
-modi_data <- tm_map(modi_data,removePunctuation)
-modi_data <- tm_map(modi_data,removeWords, stopwords("english"))
-# the following words stop words which I wanted to remove
-modi_data<-tm_map(modi_data, removeWords, 
-                  c("and","the","our","that","for","are","also","more",
-                    "has","must","have","should","this","with", 
-                    "had", "was", "were","per"))
-### Create a Term Document Matrix
-#It is a mathematical matrix that describes the frequency of terms that occur 
-#in a collection of documents. In a document-term matrix, rows correspond to 
-#words in the collection and columns correspond to documents.
-#Now we can create a word cloud even without a TDM. But the advantage of using 
-#this here is to take a look at the frequency of words.
-tdm_modi <- TermDocumentMatrix(modi_data) #Creates a TDM
-TDM1 <- as.matrix(tdm_modi) #Convert this into a matrix format
-v <- sort(rowSums(TDM1), decreasing = TRUE) #Gives you the frequencies for every word
-summary(v)
-
-temp <- as.data.frame(v)
-### Create your first word cloud!
-png(paste0("wordcloud-td_", vrsN, ".png"), 
-    width = 100, height = 100,units = "mm",res = 300)
-par(mar= c(0,0,0,0))
-wordcloud(modi_data, scale=c(5,0.5), # tam max e min das palavras
-          #max.words= 60, # num max de palavras mostradas
-          min.freq = 2, # num min de freq p/ a palavra ser mostrada
-          random.order= F, # disposicao das palavras
-          rot.per= 0.35, # % de palavras c/ rotacao
-          use.r.layout=FALSE, 
-          colors= brewer.pal(9, "Set1")) # PRGn BrBG
-dev.off()
-
-
-
-temp <- unique(allFiles[,c("file", "sampling_method_detail")])
-modi_txt <- paste(temp$sampling_method_detail, collapse = " ")
-
-### Converting the text file into a Corpus 
-#(it can then be processed by the tm package)
-# A corpus is a collection of documents (although in our case we only have one)
-# converte p uma list c/ cd frase num item de uma lista, e cada item da lista 
-# tem "content" q eh a frase e "meta" informacoes (idioma, autor...)
-modi <- Corpus(VectorSource(modi_txt))
-### Data Cleaning
-# use tm_map() from the tm package for processing your text
-modi_data <- tm_map(modi,stripWhitespace)
-modi_data <- tm_map(modi_data,tolower)
-modi_data <- tm_map(modi_data,removeNumbers)
-modi_data <- tm_map(modi_data,removePunctuation)
-modi_data <- tm_map(modi_data,removeWords, stopwords("english"))
-# the following words stop words which I wanted to remove
-modi_data<-tm_map(modi_data, removeWords, 
-                  c("and","the","our","that","for","are","also","more",
-                    "has","must","have","should","this","with", 
-                    "had", "was", "were","per"))
-### Create a Term Document Matrix
-#It is a mathematical matrix that describes the frequency of terms that occur 
-#in a collection of documents. In a document-term matrix, rows correspond to 
-#words in the collection and columns correspond to documents.
-#Now we can create a word cloud even without a TDM. But the advantage of using 
-#this here is to take a look at the frequency of words.
-tdm_modi <- TermDocumentMatrix(modi_data) #Creates a TDM
-TDM1 <- as.matrix(tdm_modi) #Convert this into a matrix format
-v <- sort(rowSums(TDM1), decreasing = TRUE) #Gives you the frequencies for every word
-summary(v)
-
-temp <- as.data.frame(v)
-### Create your first word cloud!
-png(paste0("wordcloud-semRep_", vrsN, ".png"), 
-    width = 100, height = 100,units = "mm",res = 300)
-par(mar= c(0,0,0,0))
-wordcloud(modi_data, scale=c(5,0.5), # tam max e min das palavras
-          #max.words= 60, # num max de palavras mostradas
-          min.freq = 2, # num min de freq p/ a palavra ser mostrada
-          random.order= F, # disposicao das palavras
-          rot.per= 0.35, # % de palavras c/ rotacao
-          use.r.layout=FALSE, 
-          colors= brewer.pal(9, "Set1")) # PRGn BrBG
-dev.off()
-
-
-
-
-
+par(oma = c(0,0,0,0), mar= c(5.1, 4.1, 4.1, 2.1))
+write.csv(as.data.frame(temp), 
+          paste0("output/",vrsN,"_veg_landuse_type_point - tdosTipos.csv"))
 
 
 
@@ -427,12 +209,23 @@ temp <- rbind.data.frame(temp2, temp[temp$country == "Brazil", ])
 # cria um vetor
 temp1 <- table(temp$state)
 temp1 <- temp1[match(unique(temp$state), names(temp1))]
-png(paste0("freqMunicipiosPorEstado_", vrsN, ".png"), 
+# coloca acento nos nomes (manualmente) +++++++++++++++++++++++++++++++++++++++
+temp2 <- names(temp1)
+temp2[1] <- "Entre Ríos"
+temp2[4] <- "Ceará"
+temp2[5] <- "Goiás"
+temp2[8] <- "Paraíba"
+temp2[11] <- "Paraná"
+temp2[13] <- "Espírito Santo"
+temp2[17] <- "São Paulo"
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+png(paste0("output/", vrsN, "_Fig7_Number of sampled municipalities per state.png"), 
     width = 100, height = 100,units = "mm",res = 300)
-par(mar= c(11,3,1,0), mgp= c(2,0.5,0), cex= 0.9)
-barplot(temp1, las= 2, ylab= "Num. of municipalities", ylim = c(0,60))
+par(mar= c(12,3,1,0), mgp= c(2,0.5,0), cex= 0.9)
+barplot(temp1, names.arg = temp2,
+        las= 2, ylab= "Num. of municipalities", ylim = c(0,65))
 text(x= seq(0.7,(nrow(temp1)*1.2)-0.3,1.2), y= temp1+3, labels = temp1)
-title(xlab= "State", line = 8)
+title(xlab= "Province/State", line = 10.5)
 dev.off()
 
 # salva em csv por nome de estado e pais
@@ -444,12 +237,12 @@ munPorEstd <- as.data.frame(temp1)
 
 
 ###############################################################################  
-# Mapa com tamanho da rede formando circulos no mapa (ou tabela para Qgis)
+# Mapa com tamanho da rede formando circulos no mapa (tabela para Qgis)
 # Unidade do que eh uma rede: site_name (ou municipality)
 temp <- allFiles[,c("file","regional_name_of_sampled_area",
                     "municipality", "site_name_id","state",
                     "plant_species_complete_name", 
-                    "insect_species_complete_name")]
+                    "invertebrate_species_complete_name")]
 # se nao tem regional_name_of_sampled_area, recebe site_name_id
 temp$regional_name_of_sampled_area[is.na(temp$regional_name_of_sampled_area)] <- 
   temp$site_name_id[is.na(temp$regional_name_of_sampled_area)]
@@ -462,7 +255,7 @@ ID <- paste(temp$regional_name_of_sampled_area,
 temp.allFiles <- cbind.data.frame(ID= ID, allFiles)
 temp <- unique(temp.allFiles[,c("ID", 
                                 "plant_species_complete_name", 
-                                "insect_species_complete_name")])
+                                "invertebrate_species_complete_name")])
 # cada rede (479)
 temp1 <- as.data.frame(table(temp$ID)) 
 rownames(temp1) <- temp1$Var1
@@ -485,7 +278,10 @@ mean(table(temp1$file)) # 7.484375
 sd(table(temp1$file)) # 12.59124
 
 tamRed <- temp1
-#write.csv(temp1, paste0("tamRedesEstado_", vrsN, ".csv"))
+rownames(temp1) <- 1:nrow(temp1)
+temp2 <- data.frame(table(temp1$state))
+colnames(temp2) <- c("state","n.networks")
+write.xlsx(list(temp1,temp2), paste0("output/tamRedesEstado_", vrsN, ".xlsx"),row.names = F)
 
 ###############################################################################
 # Mapas com todas as redes
@@ -495,13 +291,13 @@ BrState <- readOGR(dsn="../Brazil_estados/Brazilian_States_Limits.shp")
 amSul <- readOGR(dsn="../Brazil_estados/Lowenberg_Neto_2014.shp")
 
 
-png(paste0("mapa", vrsN, "tamRedesEst-log.png"), 650,900)
+png(paste0("output/", vrsN, "_Fig5_Distribution and size of each network in the dataset.png"), 650,900)
 # tiff(paste0("output/_rev_", vrsN, "todos_os_dados.tif"),
 #      width = 1000, height = 900,units = "px") # ,res = 300
 par(mar=c(3,3,2,0), lend = 0)
 
 plot(amSul, asp=1, 
-     main=paste0(nrow(temp1), " networks (range from ", 
+     main=paste0(nrow(temp1), " networks (size ranging from ", 
                 min(temp1$size), " to ", max(temp1$size),")"), 
      usePolypath = FALSE, cex.main = 2, font.main = 1,
      col = "gray75", bor = "white", bg = "lightskyblue",
@@ -541,45 +337,8 @@ dev.off()
 
 
 ###############################################################################  
-# Figura com esforco amostral (ou tabela para mapa no Qgis)
+# Esforco amostral (tabela para Qgis)
 # media de horas de estudo (por estado) e SD
-
-# Unidade de esforco amostral: sampling_effort_hours
-temp <- unique(allFiles[,c("file", "country","state","sampling_effort_hours")])
-# se nao eh brasil, nome do estado passa a ser o pais
-temp$state[temp$country != "Brazil"] <- temp$country[temp$country != "Brazil"]
-temp <- unique(temp[,c("file", "state", "sampling_effort_hours")])
-# quantidade de NAs (70)
-sum(is.na(temp$sampling_effort_hours))
-# remove NA (resulta em 206)
-temp <- temp[!is.na(temp$sampling_effort_hours),]
-# calcula a media e o desvio padrao
-temp1 <- tapply(as.numeric(temp$sampling_effort_hours), temp$state, 
-                mean)
-temp2 <- tapply(as.numeric(temp$sampling_effort_hours), temp$state, 
-                sd)
-temp3 <- cbind.data.frame(state= names(temp1), mean= temp1, sd= temp2)
-temp4 <- as.data.frame(table(temp$state))
-colnames(temp4) <- c("state","qt.of.values") 
-temp3 <- merge(temp4,temp3)
-temp3 <- temp3[order(temp3$mean),]
-temp$state <- factor(temp$state, levels = temp3$state)
-temp3$state <- factor(temp3$state, levels = temp3$state)
-#temp3 <- temp3[order(temp3$mean, decreasing = T),]
-
-png(paste0("esforcoAmost-horas_qtValoresDiferentes",vrsN,".png"), 
-    width = 100, height = 100,units = "mm",res = 300)
-par(mar= c(10,4,1,1), mgp= c(2.5,0.5,0))
-boxplot(as.numeric(sampling_effort_hours) ~state, data= temp,
-        las= 2, ylab= "Hours", frame= F, xaxt = "n")
-axis(1, at= 1:14, las= 2,
-     labels = paste0(temp3$state, " (", temp3$qt.of.values, ")"))
-title(xlab= "States", line= 8.5)
-dev.off()
-
-qtValDifEsfPorEstd <- temp3
-#write.csv(temp3,paste0("valoresDifDeEsforcoAmostral_",vrsN,".csv"))
-
 
 # media de horas por rede (por estado) e SD
 temp <- allFiles[,c("file","regional_name_of_sampled_area",
@@ -599,8 +358,15 @@ ID <- paste(temp$regional_name_of_sampled_area,
 temp.allFiles <- cbind.data.frame(ID= ID, allFiles)
 temp <- cbind.data.frame(ID= ID, temp)
 temp <- unique(temp[,c("ID","state","sampling_effort_hours")]) # 622
+# num redes por estado
+statesNets <- unique(temp[,c("ID","state")])
+statesNets <- data.frame(table(statesNets$state))
+colnames(statesNets) <- c("state","n.networks")
+statesNets$state <- as.character(statesNets$state)
+# tira dados que nao estao com valores de esforco amostral
 temp <- temp[!is.na(temp$sampling_effort_hours),] # 369
 
+# calcula o esforco amostral por estado
 temp1 <- as.data.frame(table(temp$ID)) 
 rownames(temp1) <- temp1$Var1
 colnames(temp1) <- c("ID", "size")
@@ -622,7 +388,7 @@ temp5 <- as.data.frame(tapply(as.numeric(temp$sampling_effort_hours),
                               temp$ID, sd))
 colnames(temp5) <- "sd"
 temp5 <- cbind.data.frame(ID= rownames(temp5),temp5)
-# vincula as coordenadas ao tamanha das redes
+# vincula as coordenadas ao tamanho das redes
 temp6 <- merge(merge(merge(merge(temp1, temp2), temp3), temp4),temp5)
 temp6 <- temp6[temp6$size > 0, ] # fatores que tem dado de tempo
 # vicunla a info de rede e file
@@ -644,26 +410,47 @@ porStt <- cbind.data.frame(porStt,
 colnames(porStt) <- c("mean", "sd", "sum")
 porStt <- cbind.data.frame(porStt,
                            qt= as.data.frame(table(temp6$state)))
-
+porStt$qt.Var1 <- as.character(porStt$qt.Var1)
+# Deixa equivalente os estados represetados com o tbl de info de n de redes 
+statesNets <- statesNets[ match(porStt$qt.Var1, statesNets$state), ]
+# coloca acento nos nomes (manualmente) +++++++++++++++++++++++++++++++++++++++
+porStt$qt.Var1[porStt$qt.Var1 == "Ceara"] <- "Ceará"
+porStt$qt.Var1[porStt$qt.Var1 == "Goias"] <- "Goiás"
+porStt$qt.Var1[porStt$qt.Var1 == "Paraiba"] <- "Paraíba"
+porStt$qt.Var1[porStt$qt.Var1 == "Parana"] <- "Paraná"
+porStt$qt.Var1[porStt$qt.Var1 == "Espirito Santo"] <- "Espírito Santo"
+porStt$qt.Var1[porStt$qt.Var1 == "Sao Paulo"] <- "São Paulo"
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #write.csv(porStt,paste0("esforcoAmostral-porEstado_",vrsN,".csv"))
 
 
-png(paste0("esforcoAmost-horas_porEstado",vrsN,".png"), 
+png(paste0("output/",vrsN,"_Fig6_Sample effort and number of sampled networks.png"), 
     width = 175, height = 200,units = "mm",res = 300)
 
 layout(matrix(c(1,2,3,3), ncol= 1, nrow= 4))
-par(mar= c(1,4,1,1), mgp= c(2.5,0.5,0), cex= 1)
+
+par(mar= c(1,4,1,1), mgp= c(2.5,0.5,0), cex= 1, omi= c(0,0.5,0,0))
 boxplot(temp6$mean~temp6$state,
         las= 2, ylab= "Hours", frame= F, xaxt = "n")
-par(mar= c(1,4,1,1), mgp= c(2.5,0.5,0))
+mtext("A)", side=3, adj=-0.15, line=0, cex=1)
+
+par(mar= c(1.5,4,1,1), mgp= c(2.5,0.5,0))
 barplot(porStt$sum, ylab= "Accumulated hours",las= 2)
+mtext("B)",side=3, adj=-0.15, line=0, cex=1)
+
 par(mar= c(11,4,1,1), mgp= c(2.5,0.5,0.5))
-barplot(porStt$qt.Freq, ylab= "N. of networks",las= 2)
+barplot(statesNets$n.networks, ylab= "N. of networks",las= 2)
 axis(1, seq(0.75,(nrow(porStt)*1.2)-0.1,1.2), las= 2,
-     labels = paste0(porStt$qt.Var1, " (", porStt$qt.Freq, ")"))
-title(xlab= "States", line= 9.5)
+     labels = paste0(porStt$qt.Var1, " (", statesNets$n.networks, ")"))
+# considerando apenas as redes que tem info nas colunas Sample effort
+# barplot(porStt$qt.Freq, ylab= "N. of networks",las= 2)
+# axis(1, seq(0.75,(nrow(porStt)*1.2)-0.1,1.2), las= 2,
+#      labels = paste0(porStt$qt.Var1, " (", porStt$qt.Freq, ")"))
+mtext("C)", side=3, adj=-0.15, line=0, cex=1)
+title(xlab= "States", line= 10)
+
 dev.off()
-par(mfrow= c(1,1)) 
+par(mfrow= c(1,1), omi= c(0,0,0,0)) 
 
 
 
@@ -672,13 +459,6 @@ par(mfrow= c(1,1))
 
 ##############################################################################
 # salva em excel
-porRede <- merge(tamRed,esfrcAmostRed[,c("ID","size","mean","sd")], 
-                 by= "ID", all= T)
-porRede$ID <- as.numeric(porRede$ID)
-colnames(porRede) <- c("ID", "netwk", "file", "state", "network.size", 
-                        "latitude_y", "longitude_x", 
-                       "n.of.hours.types.(expect.to.be.1)", 
-                       "mean(hours)", "sd(hours)")
 
 # munPorEstd | municipios por estado 
 # --qtValDifEsfPorEstd | qt de esforco amostral por arquivo # descartar
@@ -719,13 +499,11 @@ porEstado <- merge(porEstado, temp, all= T)
 # cria um objeto no formato do documento xlsx
 wb <- createWorkbook()
 # cria abas
-addWorksheet(wb, "byNetwork")
 addWorksheet(wb, "byState")
 ### salva info nas abas
-writeData(wb, "byNetwork", porRede)
 writeData(wb, "byState", porEstado) 
 
-saveWorkbook(wb, file = paste0("_tabelas-info_", vrsN,
+saveWorkbook(wb, file = paste0("output/_tabelas-info_", vrsN,
                                format(Sys.time(), "_%Y-%m-d%d-"),
                                gsub(":", "", format(Sys.time(), "%X") ),
                                ".xlsx"))
@@ -739,171 +517,63 @@ saveWorkbook(wb, file = paste0("_tabelas-info_", vrsN,
 
 
 
-###############################################################################  
-# graficos apresentando a diversidade taxonomica das redes
-## grafico de barras de diversidade
-###############################################################################
-plotdiversity <- function(gNvplanTx,gNvanimTx){
-  # tiff(paste0("../output/_rev_", vrsN, "_diversityColor.tif"),
-  #      width = 174,height = 233,units = "mm",res = 300)
-  png(paste0("output/_rev_", vrsN, "_nSpColor.png"),
-      width = 174,height = 233,units = "mm",res = 300)
-  par(mfcol= c(3,2), mar= c(2,8,1.8,1)+0.1, mgp= c(1,1,0))
-  # plantas
-  for (i in 1:3){
-    tempgNvplanTx <- gNvplanTx[!is.na(gNvplanTx[,i]), ]
-    temp <- unique(tempgNvplanTx[,i])
-    soma <- vector(mode = "numeric", length = length(temp))
-    for (j in 1:length(temp)){
-      soma[j] <- sum(tempgNvplanTx[ ,i] == temp[j])
-    }
-    soma <- data.frame(name = temp[order(soma, decreasing =T)], 
-                       sum = soma[order(soma, decreasing =T)])
-    write.csv(soma, paste0("nSp_plant_", i, "-", colnames(gNvplanTx)[i], ".csv"))
-    tam <- ifelse(nrow(soma) < 20, nrow(soma), 20)
-    if(i == 1){
-      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
-              beside = T, col = "#008033", border = NA,
-              main = paste0("Number of plant species by\n ", colnames(gNvplanTx)[i],
-                            " (", tam, " of ",length(soma[,1]),")" ))
-    }else{
-      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
-              beside = T, col = "#008033", border = NA,
-              main = paste0(colnames(gNvplanTx)[i],
-                            " (", tam, " of ",length(soma[,1]),")" ))
-    }
-  }
-  # animais
-  for (i in 1:3){
-    tempgNvanimTx <- gNvanimTx[!is.na(gNvanimTx[,i]), ]
-    temp <- unique(tempgNvanimTx[ ,i])
-    soma <- vector(mode = "numeric", length = length(temp))
-    for (j in 1:length(temp)){
-      soma[j] <- sum(tempgNvanimTx[ ,i] == temp[j])
-    }
-    soma <- data.frame(name = temp[order(soma, decreasing =T)], 
-                       sum = soma[order(soma, decreasing =T)])
-    write.csv(soma, paste0("nSp_animal_", i, "-", colnames(gNvplanTx)[i], ".csv"))
-    tam <- ifelse(nrow(soma) < 20, nrow(soma), 20)
-    if(i == 1){
-      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
-              beside = T, col = "#ff2a2a", border = NA,
-              main = paste0("Number of animal species by\n ", colnames(gNvanimTx)[i],
-                            " (", tam, " of ",length(soma[,1]),")" ))
-    }else{
-      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
-              beside = T, col = "#ff2a2a", border = NA,
-              main = paste0(colnames(gNvanimTx)[i],
-                            " (", tam, " of ",length(soma[,1]),")" ))
-    }
-  }
-  par(mfcol= c(1,1), mar= c(5,4,4,2)+0.1, mgp= c(3,1,0))
-  dev.off()
-}
 
 
-Plt <- unique(allFiles[, c("plant_order","plant_family","plant_genera","plant_species")])
-colnames(Plt) <- c("order","family","genera","species")
-Anm <- unique(allFiles[, c("insect_order","insect_family","insect_genera","insect_species")])
-colnames(Anm) <- c("order","family","genera","species")
-
-plotdiversity(Plt,Anm)
 
 
 
 ###############################################################################  
-# tabela com a quantidade de cada taxon
-tblTx <- data.frame(Species = NA,
+# tabela com a quantidades
+# Taxons
+tblTx <- data.frame(Morphotypes = NA,
+                    Species = NA,
                     Genera = NA,
                     Family = NA,
                     Order = NA, stringsAsFactors = F)
-tblTx["Plant", 1] <- length(na.exclude(unique(allFiles$plant_species)))
-tblTx["Plant", 2] <- length(na.exclude(unique(allFiles$plant_genera)))
-tblTx["Plant", 3] <- length(na.exclude(unique(allFiles$plant_family)))
-tblTx["Plant", 4] <- length(na.exclude(unique(allFiles$plant_order)))
 
-tblTx["Invertebrate", 1] <- length(na.exclude(unique(allFiles$insect_species)))
-tblTx["Invertebrate", 2] <- length(na.exclude(unique(allFiles$insect_genera)))
-tblTx["Invertebrate", 3] <- length(na.exclude(unique(allFiles$insect_family)))
-tblTx["Invertebrate", 4] <- length(na.exclude(unique(allFiles$insect_order)))
+tblTx["Plant", 1] <- length(na.exclude(unique(allFiles$plant_species_complete_name)))
+tblTx["Plant", 2] <- length(na.exclude(unique(allFiles$plant_species)))
+tblTx["Plant", 3] <- length(na.exclude(unique(allFiles$plant_genera)))
+tblTx["Plant", 4] <- length(na.exclude(unique(allFiles$plant_family)))
+tblTx["Plant", 5] <- length(na.exclude(unique(allFiles$plant_order)))
 
-write.csv(tblTx, "output/qtTx.csv")
+tblTx["Invertebrate", 1] <- length(na.exclude(unique(allFiles$invertebrate_species_complete_name)))
+tblTx["Invertebrate", 2] <- length(na.exclude(unique(allFiles$invertebrate_species)))
+tblTx["Invertebrate", 3] <- length(na.exclude(unique(allFiles$invertebrate_genera)))
+tblTx["Invertebrate", 4] <- length(na.exclude(unique(allFiles$invertebrate_family)))
+tblTx["Invertebrate", 5] <- length(na.exclude(unique(allFiles$invertebrate_order)))
+
+# geral
+qtdds <- data.frame(Summary = c("Entries","Files","Coutries",
+                                "States","Municipalities","Citations"),
+                    Qt = vector("numeric", 6), stringsAsFactors = F)
+
+qtdds[1,2] <- nrow(allFiles)
+qtdds[2,2] <- length(unique(allFiles$file))
+qtdds[3,2] <- length(unique(allFiles$country))
+qtdds[4,2] <- length(unique(allFiles$state))
+qtdds[5,2] <- length(unique(allFiles$municipality))
+qtdds[6,2] <- length(unique(allFiles$reference_citation))
+
+# Create Workbook
+wb <- createWorkbook()
+# Add worksheets
+addWorksheet(wb, "tblTx")
+addWorksheet(wb, "qtdds")
+# add data
+writeData(wb, "tblTx", tblTx, rowNames = TRUE)
+writeData(wb, "qtdds", qtdds, rowNames = TRUE)
+# save xlsx file
+saveWorkbook(wb,  paste0("output/", vrsN,"_qtTx.xlsx"), overwrite = TRUE)
+
+
+
+
 
 ###############################################################################  
-# graficos apresentando a abundacia das redes
-## grafico de barras de abundancia
+# graficos apresentando a quantidade de entradas e diversidade das redes
+## grafico de barras de quantidade de entradas
 ###############################################################################
-plotAbundancia <- function(gNvplanTx,gNvanimTx){
-  # tiff(paste0("../output/_rev_", vrsN, "_diversityColor.tif"),
-  #      width = 174,height = 233,units = "mm",res = 300)
-  png(paste0("output/_rev_", vrsN, "_abundanceColor.png"),
-      width = 174,height = 233,units = "mm",res = 300)
-  par(mfcol= c(3,2), mar= c(2,8,1.8,1)+0.1, mgp= c(1,1,0))
-  # plantas
-  for (i in 1:3){
-    soma <- as.data.frame(table(gNvplanTx[!is.na(gNvplanTx[,i]),i]))
-    colnames(soma) <- c("name","sum")
-    soma <- soma[order(soma$sum, decreasing =T),]
-    if(i == 1){
-      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
-              beside = T, col = "#008033", border = NA,
-              main = paste0("Number of plant entries\n ", colnames(gNvplanTx)[i],
-                            " - total of ",length(soma[,1]) ))
-    }else{
-      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
-              beside = T, col = "#008033", border = NA,
-              main = paste0(colnames(gNvplanTx)[i],
-                            " - total of ",length(soma[,1]) ))
-    }
-  }
-  # animais
-  for (i in 1:3){
-    soma <- as.data.frame(table(gNvanimTx[!is.na(gNvanimTx[,i]),i]))
-    colnames(soma) <- c("name","sum")
-    soma <- soma[order(soma$sum, decreasing =T),]
-    if(i == 1){
-      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
-              beside = T, col = "#ff2a2a", border = NA,
-              main = paste0("Number of animal entries\n ", colnames(gNvanimTx)[i],
-                            " - total of ",length(soma[,1]) ))
-    }else{
-      barplot(soma[20:1,2], names.arg = soma[20:1,1], las = 1, horiz = T,
-              beside = T, col = "#ff2a2a", border = NA,
-              main = paste0(colnames(gNvanimTx)[i],
-                            " - total of ",length(soma[,1]) ))
-    }
-  }
-  par(mfcol= c(1,1), mar= c(5,4,4,2)+0.1, mgp= c(3,1,0))
-  dev.off()
-}
-
-
-Plt <- allFiles[, c("plant_order","plant_family","plant_genera","plant_species")]
-colnames(Plt) <- c("order","family","genera","species")
-Anm <- allFiles[, c("insect_order","insect_family","insect_genera","insect_species")]
-colnames(Anm) <- c("order","family","genera","species")
-
-write(paste0("Number of Animals\nSpecies:\t", length(Anm$species[!is.na(Anm$species)]),
-             "\nGenus:\t", length(Anm$genera[!is.na(Anm$genera)]),
-             "\nFamily:\t", length(Anm$family[!is.na(Anm$family)]),
-             "\nOrder:\t", length(Anm$order),
-             "\nNumber of Plants\nSpecies:\t", length(Plt$species[!is.na(Plt$species)]),
-             "\nGenus:\t", length(Plt$genera[!is.na(Plt$genera)]),
-             "\nFamily:\t", length(Plt$family[!is.na(Plt$family)]),
-             "\nOrder:\t", length(Plt$order) ),
-      file = paste0("output/_rev_AbundancePerTaxon",vrsN, ".txt"))
-
-plotAbundancia(Plt,Anm)
-
-
-
-
-
-
-
-
-
-#==============================================================================
 plotDivAbu <- function(gNvplanTx,gNvanimTx){
   qtTtl <- vector("list", length = 15)
   names(qtTtl) <- c("dvPlOr","dvPlFa","dvPlGe",
@@ -924,19 +594,19 @@ plotDivAbu <- function(gNvplanTx,gNvanimTx){
   tblTx["Plant", 4] <- length(na.exclude(unique(allFiles$plant_family)))
   tblTx["Plant", 5] <- length(na.exclude(unique(allFiles$plant_order)))
   
-  tblTx["Invertebrate", 1] <- length(na.exclude(unique(allFiles$insect_species_complete_name)))
-  tblTx["Invertebrate", 2] <- length(na.exclude(unique(allFiles$insect_species)))
-  tblTx["Invertebrate", 3] <- length(na.exclude(unique(allFiles$insect_genera)))
-  tblTx["Invertebrate", 4] <- length(na.exclude(unique(allFiles$insect_family)))
-  tblTx["Invertebrate", 5] <- length(na.exclude(unique(allFiles$insect_order)))
+  tblTx["Invertebrate", 1] <- length(na.exclude(unique(allFiles$invertebrate_species_complete_name)))
+  tblTx["Invertebrate", 2] <- length(na.exclude(unique(allFiles$invertebrate_species)))
+  tblTx["Invertebrate", 3] <- length(na.exclude(unique(allFiles$invertebrate_genera)))
+  tblTx["Invertebrate", 4] <- length(na.exclude(unique(allFiles$invertebrate_family)))
+  tblTx["Invertebrate", 5] <- length(na.exclude(unique(allFiles$invertebrate_order)))
   tblTx <- cbind.data.frame(tblTx, Type = c(NA,"Plant", "Invertebrate"))
   qtTtl$qtCdTx <- tblTx
 
   # plantas
   
-  # tiff(paste0("../output/_rev_", vrsN, "_nSpPlant.tif"),
+  # tiff(paste0("../output/", vrsN, "_nSpPlant.tif"),
   #      width = 174,height = 233,units = "mm",res = 300)
-  png(paste0("output/_rev_", vrsN, "_nSpPlant.png"),
+  png(paste0("output/", vrsN, "_Fig2_First twenty orders families and genera (plant).png"),
       width = 174,height = 233,units = "mm",res = 300)
   par(mfcol= c(3,2), mar= c(2,9,1.8,1)+0.1, mgp= c(1,1,0))
   
@@ -1011,7 +681,7 @@ plotDivAbu <- function(gNvplanTx,gNvanimTx){
   
   # animais
   
-  png(paste0("output/_rev_", vrsN, "_nSpInvert.png"),
+  png(paste0("output/", vrsN, "_Fig3_First twenty orders families and genera (invertebrate).png"),
       width = 174,height = 233,units = "mm",res = 300)
   par(mfcol= c(3,2), mar= c(2,9,1.8,1)+0.1, mgp= c(1,1,0))
   
@@ -1079,15 +749,92 @@ plotDivAbu <- function(gNvplanTx,gNvanimTx){
   }
   dev.off()
   par(mfcol= c(1,1), mar= c(5,4,4,2)+0.1, mgp= c(3,1,0))
-  
-  write.xlsx(qtTtl, "output/quantiasAbDiv.xlsx")
 }
 
 Plt <- allFiles[, c("plant_order","plant_family","plant_genera","plant_species")]
 colnames(Plt) <- c("order","family","genera","species")
-Anm <- allFiles[, c("insect_order","insect_family","insect_genera","insect_species")]
+Anm <- allFiles[, c("invertebrate_order","invertebrate_family","invertebrate_genera","invertebrate_species")]
 colnames(Anm) <- c("order","family","genera","species")
 
 plotDivAbu(Plt,Anm)
 gNvplanTx <- Plt
 gNvanimTx <- Anm
+
+
+
+###############################################################################  
+# Tabela com as informacoes das variaveis
+###############################################################################
+
+### tabela para armazenar as var, 
+# valores, qt de valores dif, min. max. media e SD
+tam <- vector("character", ncol(allFiles)) # num. de colunas
+num <- vector("numeric", ncol(allFiles)) # num. de colunas
+tbl1 <- data.frame(var = colnames(allFiles),
+                   val = tam,
+                   nQt = num,
+                   tQt = tam,
+                   qts = tam,
+                   qNA = num,
+                   pNA = num,
+                   tNA = tam,
+                   min = num,
+                   max = num,
+                   med = num,
+                   sd = num, stringsAsFactors = F)
+valores <- vector("list", ncol(allFiles))
+names(valores) <- tbl1$var
+for(i in 1:ncol(allFiles)){
+  temp <- allFiles[, i]
+  tbl1$qNA[[i]] <- sum(is.na(allFiles[, i]))
+  tbl1$pNA[[i]] <- round(sum(is.na(allFiles[, i]))/nrow(allFiles), 3)
+  tbl1$tNA[[i]] <- paste0(sum(is.na(allFiles[, i])),
+                          " (", round(sum(is.na(allFiles[, i]))/nrow(allFiles), 
+                                      3), 
+                          "%)")
+  valores[[i]] <- unique(temp)
+  tbl1$val[i] <- paste(unique(temp), collapse = "; ")
+  tbl1$qts[i] <- length(unique(temp))
+  tbl1$nQt[i] <- length(unique(temp))
+  tbl1$tQt[i] <- paste0(length(unique(temp)), " (nominal values)")
+  temp2 <- temp
+  if(i == 11){
+    temp2 <- sub("m (.*)", "", temp2) # so para precisao precisa dessa etapa
+    temp2 <- sub(" (.*)", "", temp2)
+    tbl1$qts[i] <- length(unique(temp2))
+  }
+  temp2 <- as.numeric(temp2)
+  if(!all(is.na(temp2))){
+    tbl1$min[i] <- min(temp2, na.rm = T)
+    tbl1$max[i] <- max(temp2, na.rm = T)
+    tbl1$med[i] <- mean(temp2, na.rm = T)
+    tbl1$sd[i] <- sd(temp2, na.rm = T)
+    nom <- temp[is.na(temp2)] # quais sao nomes
+    nmr <- temp2[!is.na(temp2)] # quais sao numeros
+    tbl1$qts[i] <- paste0(tbl1$qts[i], 
+                          " (nom: ", length(unique(nom)),
+                          ", nmr: ", length(unique(nmr)), ")")
+    tbl1$tQt[i] <- paste0(tbl1$nQt[i], 
+                          " (", length(unique(nom)) - (tbl1$qNA[[i]] > 0),
+                          " nominal values and ", length(unique(nmr)), 
+                          " interval values: min. ", tbl1$min[i],
+                          ", max. ", tbl1$max[i],
+                          ", mean ", round(tbl1$med[i], 2),
+                          ", sd. ", round(tbl1$sd[i], 2), ")")
+    
+  }
+}
+
+# apaga algumas contagens q são 0
+tbl1$tQt <- gsub("0 nominal values and ", "", tbl1$tQt)
+tbl1$qts <- gsub(" \\(nom: 0.*$", "", tbl1$qts)
+
+# salva os arquivos (csv para a tabela com termos padronizados)
+# write.xlsx(tbl1, paste0("output/", vrsN, "_table1_auxValues_v02.xlsx"))
+write.xlsx(tbl1[,-2], paste0("output/", vrsN, "_table1_auxMedidas.xlsx"))
+# temp <- as.list(tbl1$val)
+# names(temp) <- tbl1$var
+# for(i in 1:length(allFiles)){
+#   
+# }
+write.xlsx(valores, "table1_auxOnlyValues_.xlsx")
